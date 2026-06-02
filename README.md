@@ -1,117 +1,170 @@
-# web-retrieval-mcp
+# web-retrieval-mcp — supercharged web search & fetch for AI agents
 
-A small [Model Context Protocol](https://modelcontextprotocol.io) (MCP) server that
-gives an LLM agent two high-fidelity web tools:
+> A drop-in [Model Context Protocol (MCP)](https://modelcontextprotocol.io) server that **replaces an LLM agent's built-in web tools** with two higher-fidelity ones: neural **web search** ([Exa](https://exa.ai)) and a tiered **web fetch** (Exa → optional local browser → [Firecrawl](https://firecrawl.dev)) — with a built-in SSRF guard. Works with **Claude Code**, Claude Desktop, and any MCP client. **Runs on free API tiers.**
 
-| Tool | What it does | Backed by |
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](./LICENSE)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/)
+[![MCP](https://img.shields.io/badge/Model_Context_Protocol-server-7c3aed.svg)](https://modelcontextprotocol.io)
+[![Cross-platform](https://img.shields.io/badge/macOS%20%7C%20Linux%20%7C%20Windows-supported-informational.svg)](#cross-platform-api-keys)
+
+---
+
+## Why replace the built-in web tools?
+
+An agent's stock `WebSearch` / `WebFetch` tend to flatten many sources into one blurry summary, drop provenance, and silently fail on JavaScript-heavy or anti-bot pages. This server fixes that:
+
+| | Built-in web tools | **web-retrieval-mcp** |
 |---|---|---|
-| `web_search(query, num_results, mode)` | Web search. Returns **one block per result** — each with its own title, URL, highlights and text, never a merged summary — plus a `Sources` trailer. | [Exa](https://exa.ai) `/search` (neural / keyword / auto) |
-| `web_fetch(url, render, max_chars, max_age_hours)` | Fetch one URL's readable content through a tiered chain, with a `[served by: …]` provenance header. | Exa `/contents` → *(optional local browser)* → [Firecrawl](https://firecrawl.dev) |
+| **Search results** | One merged summary, sources conflated | **One block per result** — each keeps its own title, URL, highlights, and text, plus a `Sources` trailer |
+| **Fetch reliability** | Single attempt, gives up on hard pages | **Tiered fallback**: Exa contents → optional local browser → Firecrawl, with a `[served by: …]` provenance header |
+| **JS / anti-bot pages** | Usually fails | Opt-in real headless browser ([camoufox](https://github.com/daijro/camoufox)) on demand |
+| **Safety** | — | **SSRF guard** rejects loopback / private / link-local / multicast hosts before any request |
+| **Cost** | Bundled / metered by your model vendor | **Free** on Exa + Firecrawl free tiers (see below) |
 
-It's meant as a drop-in replacement for an agent's built-in web tools, which often
-return source-conflating snippets. Each search result keeps its own provenance, and
-fetches report which tier served them.
+## Runs on free API tiers — and the free tiers are more than enough
 
-## How `web_fetch` tiering works
+Both providers have a genuinely usable **free, no-credit-card** tier, and because fetches hit **Exa first** (Firecrawl is only the fallback), a single developer or agent rarely touches the Firecrawl quota at all:
 
-```
-web_fetch(url, render="auto")   →  Exa /contents  →  Firecrawl          (default)
-web_fetch(url, render="never")  →  Exa /contents  →  Firecrawl          (same; no browser)
-web_fetch(url, render="always") →  camoufox (local headless browser)  →  Firecrawl
-```
+| Provider | Free tier (verified 2026) | Role in this server |
+|---|---|---|
+| **Exa** | **1,000 requests / month**, no card | Powers `web_search` **and** the first `web_fetch` tier |
+| **Firecrawl** | **1,000 pages / month**, no card | Fallback fetch tier only — rarely reached |
+| **camoufox** (local browser) | **Unlimited & free** — runs on your machine | Opt-in `render="always"` tier for JS/anti-bot pages |
 
-The local [camoufox](https://github.com/daijro/camoufox) browser render is **opt-in
-(`render="always"`) only**. It is the one tier that runs a real browser on the host
-machine and can therefore reach the local network, so it is deliberately kept out of
-the default path to shrink [SSRF](https://owasp.org/www-community/attacks/Server_Side_Request_Forgery)
-exposure. A `_validate_public_url` guard rejects non-public / loopback / link-local /
-multicast hosts up front, so internal URLs never reach the external APIs either.
+For a personal agent that's ~33 searches **and** 33 hard-page fetches **every day**, indefinitely, for **$0/month**. Heavy production workloads can upgrade either provider independently — the tiering and code don't change.
 
-> **SSRF residual:** the camoufox tier follows redirects and re-resolves DNS, so the
-> up-front host check covers the *initial* URL only, not post-redirect hops. The
-> default path (`auto`/`never`) never runs the browser, so this only matters if you
-> explicitly pass `render="always"` with an untrusted, hostile-redirecting URL. Full
-> closure would need a validating forward proxy.
+## Features
 
-## Requirements
+- 🔎 **`web_search`** — neural / keyword / auto search via Exa, one provenance-preserving block per result.
+- 🌐 **`web_fetch`** — single-URL readable content through a resilient tier chain with provenance headers.
+- 🧱 **Tiered fallback** — Exa contents → (opt-in) local camoufox browser → Firecrawl, so hard pages still resolve.
+- 🛡️ **SSRF guard** — non-public hosts (loopback, RFC-1918, link-local, multicast, NAT64) are refused up front.
+- 🔑 **Cross-platform secrets** — env vars, a key file, the `keyring` library, or an OS secret tool. No keys on the command line.
+- 🚫 **Hook to disable the built-ins** — bundled PreToolUse hook + one-command installer so agents *must* use these tools.
+- 📦 **One-command install** — `uvx`, `pipx`, or `pip`; ships two console scripts.
 
-- Python 3.10+
-- An [Exa](https://exa.ai) API key and a [Firecrawl](https://firecrawl.dev) API key
-- Core deps: `mcp`, `anyio`
-- **Optional** (only for `render="always"`): `camoufox`, `playwright` — a ~hundreds-of-MB
-  browser stack. Search and the default fetch path work **without** them.
+## Quickstart
 
 ```bash
-pip install -r requirements.txt          # core: search + Exa/Firecrawl fetch
-pip install -r requirements-render.txt   # optional: local browser render
-python -m camoufox fetch                 # one-time: download the camoufox browser
+# Run with no install (recommended) — uvx fetches and runs it on demand:
+uvx web-retrieval-mcp
+
+# Or install the CLI:
+pipx install web-retrieval-mcp          # isolated, recommended
+pip  install web-retrieval-mcp          # or into your environment
+
+# Optional extras:
+pip install "web-retrieval-mcp[render]"   # local headless-browser tier (render="always")
+pip install "web-retrieval-mcp[keyring]"  # cross-platform native secret store
+python -m camoufox fetch                  # one-time browser download (only if you use [render])
 ```
 
-## Configuration — API keys
+Get free API keys: **Exa** → https://exa.ai · **Firecrawl** → https://firecrawl.dev — then:
 
-Keys are resolved **in-process** (never on a command line, which is visible via `ps`):
+```bash
+export EXA_API_KEY="exa-..."
+export FIRECRAWL_API_KEY="fc-..."
+```
 
-1. **Environment variables** (recommended, and required for headless/cron use):
-   - `EXA_API_KEY`
-   - `FIRECRAWL_API_KEY`
-2. **macOS login Keychain** fallback (interactive use), under generic-password
-   service names `EXA_API_KEY` and `FIRECRAWL_API_KEY`:
-   ```bash
-   security add-generic-password -s EXA_API_KEY       -a "$USER" -w 'your-exa-key'
-   security add-generic-password -s FIRECRAWL_API_KEY -a "$USER" -w 'your-firecrawl-key'
-   ```
+### Register with Claude Code
 
-An unexpanded `${...}` config literal is treated as absent. For headless / scheduled
-runs the login Keychain may be locked — supply keys via env there.
+```bash
+claude mcp add web-retrieval -- web-retrieval-mcp
+```
 
-## Register with an MCP client
-
-The server speaks MCP over stdio. Point your client (e.g. Claude Code, Claude Desktop)
-at `server.py` and pass the keys via `env`. Example (replace the placeholder path with
-wherever you cloned this repo):
+### Register with Claude Desktop / any MCP client
 
 ```json
 {
   "mcpServers": {
     "web-retrieval": {
-      "command": "python3",
-      "args": ["/path/to/web-retrieval-mcp/server.py"],
+      "command": "web-retrieval-mcp",
       "env": {
-        "EXA_API_KEY": "your-exa-key",
-        "FIRECRAWL_API_KEY": "your-firecrawl-key"
+        "EXA_API_KEY": "exa-...",
+        "FIRECRAWL_API_KEY": "fc-..."
       }
     }
   }
 }
 ```
 
-For Claude Code you can also register it from the CLI:
+## Tools
 
-```bash
-claude mcp add web-retrieval -- python3 /path/to/web-retrieval-mcp/server.py
+### `web_search(query, num_results=8, mode="auto")`
+Neural web search via Exa. Returns one block per result — each with its own title, URL, published date, highlights, and text — followed by a `Sources` list. `mode` ∈ `auto` | `neural` | `keyword`.
+
+### `web_fetch(url, render="auto", max_chars=20000, max_age_hours=None)`
+Fetch one URL's readable content through the tier chain, returned with a `[served by: …]` header.
+
+```
+render="auto"   (default) →  Exa /contents  →  Firecrawl                 # no local browser
+render="never"            →  Exa /contents  →  Firecrawl                 # same, explicit
+render="always"           →  camoufox (local browser)  →  Firecrawl      # for JS / anti-bot pages
 ```
 
-(then set `EXA_API_KEY` / `FIRECRAWL_API_KEY` in your environment or Keychain).
+`max_age_hours` controls Exa's freshness window (`0` = force fresh; `None` = Exa default cache).
 
-## Run / smoke-test directly
+## Cross-platform API keys
+
+Keys are resolved **in-process** (never on the command line, which is visible via `ps`), cheapest/safest source first — the **same code path on macOS, Linux, and Windows**:
+
+1. **Environment variables** — `EXA_API_KEY`, `FIRECRAWL_API_KEY`. Universal; **required for headless / CI**.
+2. **Key file** — a dotenv-style `KEY=value` file at `$WEB_RETRIEVAL_MCP_ENV_FILE` or `<config-dir>/keys.env`
+   (`~/.config/web-retrieval-mcp/` on Linux/macOS, `%APPDATA%\web-retrieval-mcp\` on Windows).
+3. **`keyring` library** — native store on every OS: macOS Keychain, Windows Credential Locker, Linux Secret Service / KWallet. Install the `[keyring]` extra, then store under service `web-retrieval-mcp`:
+   ```bash
+   keyring set web-retrieval-mcp EXA_API_KEY
+   keyring set web-retrieval-mcp FIRECRAWL_API_KEY
+   ```
+4. **OS-native secret CLI** — macOS `security`, Linux `secret-tool` (libsecret), if present.
+
+An unexpanded `${...}` config literal is treated as absent.
+
+## Block the built-in web tools (Claude Code)
+
+So agents and subagents can't silently fall back to the lower-fidelity built-ins, this repo ships a PreToolUse hook that **denies** `WebSearch` / `WebFetch` and points the agent here. Install it idempotently:
 
 ```bash
-EXA_API_KEY=... FIRECRAWL_API_KEY=... python3 server.py   # serves MCP over stdio
+web-retrieval-mcp-install              # patch ~/.claude/settings.json (backs it up first)
+web-retrieval-mcp-install --print      # preview only, write nothing
+web-retrieval-mcp-install --register-mcp   # also run `claude mcp add`
+web-retrieval-mcp-install --uninstall  # remove the hook
 ```
 
-## Design constraints (for contributors)
+Break-glass: `touch ~/.claude/.web-builtins-allow` re-enables the built-ins for the session; remove the file to re-arm. The hook is pure POSIX `sh` (no `jq`).
 
-- **stdout is JSON-RPC only.** Tools return strings; nothing prints to stdout — a
-  stray print corrupts the protocol. All diagnostics go to stderr.
-- Blocking I/O (Keychain subprocess + `urllib` POSTs) runs in a worker thread via
-  `anyio.to_thread.run_sync`, so it never stalls the event loop under concurrent
-  calls. Each tier is wrapped in `asyncio.wait_for`.
-- The camoufox render is bounded by a semaphore + timeout (one browser per fetch)
-  and renders in-process via the native `AsyncCamoufox` API. Its imports are local,
-  so the browser stack is required only for `render="always"`.
-- Errors are caught and returned as `SEARCH_FAILED:` / `RETRIEVAL_FAILED:` strings —
-  a tool failure can't kill the server. Secrets are scrubbed from any error text.
+## Security — SSRF
+
+`web_fetch` validates every URL before any request: non-`http(s)` schemes and any host resolving to a non-public IP (loopback, private/RFC-1918, link-local, reserved/NAT64, multicast) are refused. The only tier that runs a real browser on your machine (camoufox) is **opt-in** (`render="always"`), so the default path never exposes it. Residual: the camoufox tier follows redirects, so the up-front check covers the initial URL only — full closure would need a validating forward proxy. The default `auto`/`never` path never runs the browser.
+
+## FAQ
+
+**What is web-retrieval-mcp?**
+An open-source MCP (Model Context Protocol) server that gives AI agents two web tools — `web_search` (Exa) and `web_fetch` (Exa → local browser → Firecrawl) — as a drop-in replacement for built-in web access, with provenance preservation and an SSRF guard.
+
+**Does it work with Claude Code?**
+Yes. Register with `claude mcp add web-retrieval -- web-retrieval-mcp`, and optionally install the bundled hook so the built-in `WebSearch`/`WebFetch` are disabled in favor of these tools.
+
+**Is it free?**
+Yes. The code is MIT-licensed, and it runs on the free tiers of Exa (1,000 requests/month) and Firecrawl (1,000 pages/month), neither of which requires a credit card. The local browser tier is free and unlimited.
+
+**Which platforms are supported?**
+macOS, Linux, and Windows. Key resolution and the server are cross-platform; the local browser tier needs the optional `[render]` extra.
+
+**How is it better than built-in WebSearch/WebFetch?**
+It returns one result block per source (no conflated summaries), preserves provenance, falls back across multiple fetch backends so hard/JS pages still resolve, and guards against SSRF.
+
+**Do I need the browser stack?**
+No. Search and the default fetch path need only `mcp` + `anyio`. The camoufox/playwright browser is the optional `[render]` extra, used only for `render="always"`.
+
+## Contributing
+
+Issues and PRs welcome at https://github.com/VelvetSP/web-retrieval-mcp. The server is a single module (`src/web_retrieval_mcp/server.py`); `stdout` is JSON-RPC only — keep all diagnostics on `stderr`.
 
 ## License
 
-[MIT](./LICENSE)
+[MIT](./LICENSE) © VelvetSP
+
+---
+
+<sub>Keywords: MCP server, Model Context Protocol, AI agent web search, LLM web fetch, Exa API, Firecrawl API, camoufox, Claude Code MCP, web scraping for agents, RAG retrieval, SSRF-safe fetch, cross-platform, free web search API.</sub>

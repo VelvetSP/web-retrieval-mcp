@@ -1,7 +1,0 @@
-# Optional — ONLY needed for web_fetch(render="always"), the local headless
-# browser tier. Installs a large browser stack (~hundreds of MB). After install,
-# download the browser once with:  python -m camoufox fetch
-#
-# Install the core deps too:  pip install -r requirements.txt
-camoufox>=0.4
-playwright>=1.50

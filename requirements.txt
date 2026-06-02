@@ -1,4 +1,0 @@
-# Core dependencies — web_search + the default web_fetch path (Exa + Firecrawl).
-# This is all you need unless you use render="always" (see requirements-render.txt).
-mcp>=1.27
-anyio>=4.0

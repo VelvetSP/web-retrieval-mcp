@@ -1,0 +1,57 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "web-retrieval-mcp"
+version = "0.1.0"
+description = "MCP server for AI agents: high-fidelity web search (Exa) + tiered web fetch (Exa → optional local browser → Firecrawl) with an SSRF guard. A drop-in replacement for built-in WebSearch/WebFetch."
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "VelvetSP" }]
+keywords = [
+  "mcp", "model-context-protocol", "mcp-server", "ai-agents", "llm-tools",
+  "web-search", "web-scraping", "web-fetch", "exa", "firecrawl", "camoufox",
+  "claude", "claude-code", "rag", "retrieval", "ssrf",
+]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Developers",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Internet :: WWW/HTTP :: Indexing/Search",
+  "Topic :: Software Development :: Libraries :: Python Modules",
+]
+dependencies = [
+  "mcp>=1.27",
+  "anyio>=4.0",
+]
+
+[project.optional-dependencies]
+# Local headless-browser render tier — only needed for web_fetch(render="always").
+render = ["camoufox>=0.4", "playwright>=1.50"]
+# Cross-platform native secret store (macOS Keychain / Windows Credential Locker / Linux Secret Service).
+keyring = ["keyring>=24"]
+
+[project.scripts]
+web-retrieval-mcp = "web_retrieval_mcp.server:main"
+web-retrieval-mcp-install = "web_retrieval_mcp.install:main"
+
+[project.urls]
+Homepage = "https://github.com/VelvetSP/web-retrieval-mcp"
+Repository = "https://github.com/VelvetSP/web-retrieval-mcp"
+Issues = "https://github.com/VelvetSP/web-retrieval-mcp/issues"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/web_retrieval_mcp"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"src/web_retrieval_mcp/hooks/deny-web-builtins.sh" = "web_retrieval_mcp/hooks/deny-web-builtins.sh"
+
+[tool.hatch.build.targets.sdist]
+include = ["src/", "README.md", "LICENSE", "llms.txt", "AGENTS.md"]

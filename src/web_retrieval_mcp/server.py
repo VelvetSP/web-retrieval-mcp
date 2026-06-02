@@ -13,9 +13,11 @@ Design notes:
     sits between them but is OPT-IN ONLY (render="always"), because it is the one
     tier that runs a real browser on this machine and can therefore reach the
     local network — keeping it out of the default path shrinks SSRF exposure.
-  - Keys are resolved IN-PROCESS (env first, then the macOS login Keychain),
-    never passed on a command line — argv is world-visible via `ps`. An
-    unexpanded ${...} config literal is treated as absent.
+  - Keys are resolved IN-PROCESS and cross-platform, cheapest source first:
+    env vars → dotenv-style key file → the optional `keyring` library (native
+    secret store on macOS/Windows/Linux) → OS-native secret CLI (`security` on
+    macOS, `secret-tool` on Linux). Never passed on a command line — argv is
+    world-visible via `ps`. An unexpanded ${...} config literal counts as absent.
   - stdout is JSON-RPC ONLY. Tools RETURN strings; nothing here prints to stdout.
     All diagnostics go to stderr. (A stray stdout print corrupts the protocol.)
   - Blocking I/O (Keychain subprocess + urllib POSTs) runs in a worker thread via
@@ -25,9 +27,9 @@ Design notes:
     fetch) and renders in-process via the native AsyncCamoufox API. Its imports
     are lazy, so search + Exa/Firecrawl fetch work without the browser stack
     installed — you only need `camoufox` + `playwright` for render="always".
-  - Headless/cron caveat: a LOCKED login Keychain makes key lookup fail. For
+  - Headless/cron caveat: a desktop secret store may be locked or absent. For
     scheduled / non-interactive runs, supply keys via env (EXA_API_KEY /
-    FIRECRAWL_API_KEY) instead of relying on the Keychain.
+    FIRECRAWL_API_KEY) or a key file instead of relying on a secret store.
 
 API shapes (verified live 2026-06-02):
   Exa search   POST https://api.exa.ai/search    header x-api-key
@@ -46,10 +48,13 @@ import asyncio
 import ipaddress
 import json
 import os
+import shutil
 import socket
 import subprocess
+import sys
 import urllib.error
 import urllib.request
+from pathlib import Path
 from urllib.parse import urlparse
 
 import anyio
@@ -110,24 +115,101 @@ def _looks_like_secret(v: str | None) -> bool:
     return bool(s) and not (s.startswith("${") and s.endswith("}"))
 
 
-def _get_key(*, env_names: tuple[str, ...], keychain_service: str) -> str:
-    """env-first (treating an unexpanded ${...} as absent), then login Keychain."""
+def _config_dir() -> Path:
+    """Cross-platform per-user config dir for the optional key file."""
+    override = os.environ.get("WEB_RETRIEVAL_MCP_CONFIG_DIR")
+    if override:
+        return Path(override)
+    if sys.platform == "win32":
+        base = os.environ.get("APPDATA") or os.path.expanduser("~")
+        return Path(base) / "web-retrieval-mcp"
+    base = os.environ.get("XDG_CONFIG_HOME") or os.path.expanduser("~/.config")
+    return Path(base) / "web-retrieval-mcp"
+
+
+def _key_from_file(env_names: tuple[str, ...]) -> str | None:
+    """Optional dotenv-style key file (KEY=value lines), zero dependencies, every
+    OS. Path: $WEB_RETRIEVAL_MCP_ENV_FILE, else <config-dir>/keys.env."""
+    path_str = os.environ.get("WEB_RETRIEVAL_MCP_ENV_FILE")
+    path = Path(path_str) if path_str else _config_dir() / "keys.env"
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+    except (OSError, UnicodeError):
+        return None
+    wanted = set(env_names)
+    for line in lines:
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        k, _, v = line.partition("=")
+        if k.strip() in wanted:
+            v = v.strip().strip('"').strip("'")
+            if _looks_like_secret(v):
+                return v
+    return None
+
+
+def _key_from_keyring(service: str, env_names: tuple[str, ...]) -> str | None:
+    """Optional `keyring` library — native secret store on macOS (Keychain),
+    Windows (Credential Locker), and Linux (Secret Service / KWallet).
+    Install with `pip install web-retrieval-mcp[keyring]`. Looked up under
+    service name 'web-retrieval-mcp', username = the key name."""
+    try:
+        import keyring  # noqa: PLC0415 — optional dependency, imported lazily
+    except ImportError:
+        return None
+    try:
+        for name in (service, *env_names):
+            v = keyring.get_password("web-retrieval-mcp", name)
+            if _looks_like_secret(v):
+                return v.strip()
+    except Exception:  # noqa: BLE001 — a broken keyring backend must not crash lookup
+        return None
+    return None
+
+
+def _key_from_os_cli(service: str) -> str | None:
+    """OS-native secret CLI fallback, no Python deps:
+      macOS → `security find-generic-password -s <service> -w`
+      Linux → `secret-tool lookup service <service>` (libsecret), if installed."""
+    if sys.platform == "darwin":
+        cmd = ["security", "find-generic-password", "-s", service, "-w"]
+    elif sys.platform.startswith("linux") and shutil.which("secret-tool"):
+        cmd = ["secret-tool", "lookup", "service", service]
+    else:
+        return None
+    try:
+        out = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    if out.returncode == 0 and out.stdout.strip():
+        return out.stdout.strip()
+    return None
+
+
+def _get_key(*, env_names: tuple[str, ...], service: str) -> str:
+    """Resolve a secret cross-platform, cheapest/safest source first:
+      1. environment variables (universal; required for headless / CI)
+      2. a dotenv-style key file (<config-dir>/keys.env)
+      3. the optional `keyring` library (native store on macOS/Windows/Linux)
+      4. an OS-native secret CLI (macOS `security`, Linux `secret-tool`)
+    An unexpanded ${...} config literal is treated as absent throughout. Secrets
+    resolve IN-PROCESS, never on a command line (argv is world-visible via `ps`)."""
     for name in env_names:
         v = os.environ.get(name)
         if _looks_like_secret(v):
             return v.strip()
-    try:
-        out = subprocess.run(
-            ["security", "find-generic-password", "-s", keychain_service, "-w"],
-            capture_output=True, text=True, timeout=10,
-        )
-    except (OSError, subprocess.TimeoutExpired) as e:
-        raise RetrievalError(f"keychain lookup failed for {keychain_service}: {e.__class__.__name__}")
-    if out.returncode != 0 or not out.stdout.strip():
-        raise RetrievalError(
-            f"no usable secret for '{keychain_service}' (rc={out.returncode}); "
-            f"set the corresponding env var, or if headless the login keychain may be locked")
-    return out.stdout.strip()
+    for resolver in (lambda: _key_from_file(env_names),
+                     lambda: _key_from_keyring(service, env_names),
+                     lambda: _key_from_os_cli(service)):
+        v = resolver()
+        if _looks_like_secret(v):
+            return v.strip()
+    raise RetrievalError(
+        f"no usable secret for '{service}'. Set one of the env vars "
+        f"[{', '.join(env_names)}], add it to a keys.env file, or store it via "
+        f"`keyring` / your OS secret tool. (Headless? env vars are required — a "
+        f"desktop secret store may be locked or absent.)")
 
 
 def _scrub(text: str, *secrets: str) -> str:
@@ -160,11 +242,11 @@ def _post_json(url: str, payload: dict, headers: dict, secret: str) -> dict:
 
 
 def _exa_key() -> str:
-    return _get_key(env_names=("EXA_API_KEY",), keychain_service="EXA_API_KEY")
+    return _get_key(env_names=("EXA_API_KEY",), service="EXA_API_KEY")
 
 
 def _firecrawl_key() -> str:
-    return _get_key(env_names=("FIRECRAWL_API_KEY",), keychain_service="FIRECRAWL_API_KEY")
+    return _get_key(env_names=("FIRECRAWL_API_KEY",), service="FIRECRAWL_API_KEY")
 
 
 # --------------------------------------------------------------------------- tiers (blocking)
@@ -363,5 +445,10 @@ async def web_fetch(url: str, render: str = "auto", max_chars: int = 20000,
     return f"RETRIEVAL_FAILED: {url} — " + " | ".join(errors)
 
 
-if __name__ == "__main__":
+def main() -> None:
+    """Console-script / `python -m web_retrieval_mcp` entry point."""
     mcp.run(transport="stdio")
+
+
+if __name__ == "__main__":
+    main()
