@@ -1,4 +1,4 @@
-<!-- mcp-name: io.github.velvetsp/web-retrieval-mcp -->
+<!-- mcp-name: io.github.VelvetSP/web-retrieval-mcp -->
 
 # web-retrieval-mcp — MCP web search & web fetch for AI agents (Exa + Firecrawl)
 
