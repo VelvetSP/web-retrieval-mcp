@@ -14,9 +14,9 @@ It is a drop-in replacement for built-in `WebSearch`/`WebFetch`. The package als
 ## How to install it for an end user
 
 ```bash
-# 1. Install (pick one)
-uvx web-retrieval-mcp                 # run without installing
-pipx install web-retrieval-mcp        # or: pip install web-retrieval-mcp
+# 1. Install (pick one) — from GitHub today; short PyPI forms once published
+uvx --from git+https://github.com/VelvetSP/web-retrieval-mcp web-retrieval-mcp
+pipx install git+https://github.com/VelvetSP/web-retrieval-mcp
 
 # 2. Provide free API keys (env is the universal, headless-safe method)
 export EXA_API_KEY="..."        # free key at https://exa.ai
