@@ -2,6 +2,7 @@
 
 > **web-retrieval-mcp is an open-source [Model Context Protocol (MCP)](https://modelcontextprotocol.io) server that gives AI agents two web tools — neural web search (Exa) and a tiered web fetch (Exa → optional local browser → Firecrawl) — as a drop-in replacement for built-in WebSearch/WebFetch.** It preserves per-source provenance, guards against SSRF, runs cross-platform (macOS/Linux/Windows), and works with **Claude Code, Claude Desktop, Cursor, and any MCP client**. **Runs on free API tiers.**
 
+[![PyPI](https://img.shields.io/pypi/v/web-retrieval-mcp.svg)](https://pypi.org/project/web-retrieval-mcp/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](./LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/)
 [![MCP](https://img.shields.io/badge/Model_Context_Protocol-server-7c3aed.svg)](https://modelcontextprotocol.io)
@@ -45,22 +46,20 @@ For a personal agent that's ~33 searches **and** 33 hard-page fetches **every da
 
 ## Quickstart
 
-Install straight from GitHub (works today — see [Publishing](#publishing) for the PyPI status):
-
 ```bash
 # Run with no install — uvx fetches and runs it on demand:
-uvx --from git+https://github.com/VelvetSP/web-retrieval-mcp web-retrieval-mcp
+uvx web-retrieval-mcp
 
 # Or install the CLI (isolated, recommended):
-pipx install git+https://github.com/VelvetSP/web-retrieval-mcp
+pipx install web-retrieval-mcp          # or: pip install web-retrieval-mcp
 
-# Once published to PyPI this shortens to:  pipx install web-retrieval-mcp
-
-# Optional extras (append to the pipx/pip target):
-pipx install "git+https://github.com/VelvetSP/web-retrieval-mcp#egg=web-retrieval-mcp[render]"   # local browser tier
-pip  install "web-retrieval-mcp[keyring]"   # cross-platform native secret store (once on PyPI)
-python -m camoufox fetch                    # one-time browser download (only if you use [render])
+# Optional extras:
+pip install "web-retrieval-mcp[render]"    # local headless-browser tier (render="always")
+pip install "web-retrieval-mcp[keyring]"   # cross-platform native secret store
+python -m camoufox fetch                   # one-time browser download (only if you use [render])
 ```
+
+> On [PyPI](https://pypi.org/project/web-retrieval-mcp/). Prefer the bleeding edge? Install from source: `pipx install git+https://github.com/VelvetSP/web-retrieval-mcp`.
 
 Get free API keys: **Exa** → https://exa.ai · **Firecrawl** → https://firecrawl.dev — then:
 
@@ -72,11 +71,11 @@ export FIRECRAWL_API_KEY="fc-..."
 ### Register with Claude Code
 
 ```bash
-# After `pipx install …` above puts `web-retrieval-mcp` on your PATH:
+# After `pipx install web-retrieval-mcp` puts the script on your PATH:
 claude mcp add web-retrieval -- web-retrieval-mcp
 
-# Or with no prior install, straight from GitHub via uvx:
-claude mcp add web-retrieval -- uvx --from git+https://github.com/VelvetSP/web-retrieval-mcp web-retrieval-mcp
+# Or with no prior install, via uvx:
+claude mcp add web-retrieval -- uvx web-retrieval-mcp
 ```
 
 ### Register with Claude Desktop / any MCP client
@@ -170,13 +169,11 @@ No. Search and the default fetch path need only `mcp` + `anyio`. The camoufox/pl
 
 ## Publishing
 
-> **Status:** distributed from GitHub today; **not yet on PyPI**, so `pip install web-retrieval-mcp` / `uvx web-retrieval-mcp` (the short forms) don't resolve yet — use the git-install commands in [Quickstart](#quickstart).
+> **Status:** ✅ on [PyPI](https://pypi.org/project/web-retrieval-mcp/) · ✅ [GitHub Release v0.1.0](https://github.com/VelvetSP/web-retrieval-mcp/releases/tag/v0.1.0) · ⬜ official MCP Registry (next).
 
-To publish and make the package discoverable to agents, do these in order (see [`PUBLISHING.md`](./PUBLISHING.md) for the full runbook):
+Remaining step to maximize agent discoverability (see [`PUBLISHING.md`](./PUBLISHING.md) for the full runbook):
 
-1. **PyPI** — `python -m build` then `uv publish` (or `twine upload dist/*`). Unlocks the short `pip install web-retrieval-mcp` / `uvx web-retrieval-mcp`.
-2. **Official MCP Registry** (`registry.modelcontextprotocol.io`) — the one high-leverage listing; aggregators (PulseMCP, Glama, mcp.so, Smithery) ingest from it. Publish [`server.json`](./server.json) with `mcp-publisher` (GitHub OAuth, namespace `io.github.velvetsp/...`). PyPI-gated.
-3. **Tag a release** — `git tag v0.1.0 && git push --tags`, then cut a GitHub Release (release pages are indexed by Google and add a freshness signal).
+- **Official MCP Registry** (`registry.modelcontextprotocol.io`) — the one high-leverage listing; aggregators (PulseMCP, Glama, mcp.so, Smithery) ingest from it. Publish [`server.json`](./server.json) with `mcp-publisher` (GitHub OAuth, namespace `io.github.velvetsp/...`; authorize the publisher app for the **VelvetSP** org).
 
 ## Contributing
 

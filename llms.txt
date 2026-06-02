@@ -10,8 +10,8 @@
 
 ## Install and run
 
-- Run without installing: `uvx --from git+https://github.com/VelvetSP/web-retrieval-mcp web-retrieval-mcp`
-- Install CLI: `pipx install git+https://github.com/VelvetSP/web-retrieval-mcp` (short `pipx install web-retrieval-mcp` once on PyPI)
+- Run without installing: `uvx web-retrieval-mcp`
+- Install CLI: `pipx install web-retrieval-mcp` (or `pip install web-retrieval-mcp`)
 - Optional extras: `pip install "web-retrieval-mcp[render]"` (local browser), `pip install "web-retrieval-mcp[keyring]"` (native secret store)
 - Register with Claude Code: `claude mcp add web-retrieval -- web-retrieval-mcp`
 - API keys (free): set env vars `EXA_API_KEY` (https://exa.ai) and `FIRECRAWL_API_KEY` (https://firecrawl.dev)
