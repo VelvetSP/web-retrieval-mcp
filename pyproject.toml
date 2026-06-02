@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "web-retrieval-mcp"
-version = "0.1.0"
+version = "0.1.1"
 description = "MCP server for AI agents: high-fidelity web search (Exa) + tiered web fetch (Exa → optional local browser → Firecrawl) with an SSRF guard. A drop-in replacement for built-in WebSearch/WebFetch."
 readme = "README.md"
 requires-python = ">=3.10"
