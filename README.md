@@ -1,3 +1,5 @@
+<!-- mcp-name: io.github.velvetsp/web-retrieval-mcp -->
+
 # web-retrieval-mcp — MCP web search & web fetch for AI agents (Exa + Firecrawl)
 
 > **web-retrieval-mcp is an open-source [Model Context Protocol (MCP)](https://modelcontextprotocol.io) server that gives AI agents two web tools — neural web search (Exa) and a tiered web fetch (Exa → optional local browser → Firecrawl) — as a drop-in replacement for built-in WebSearch/WebFetch.** It preserves per-source provenance, guards against SSRF, runs cross-platform (macOS/Linux/Windows), and works with **Claude Code, Claude Desktop, Cursor, and any MCP client**. **Runs on free API tiers.**

@@ -3,7 +3,7 @@
   "name": "io.github.velvetsp/web-retrieval-mcp",
   "title": "web-retrieval-mcp",
   "description": "MCP web search + tiered web fetch for AI agents (Exa, Firecrawl), SSRF-guarded, cross-platform.",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "websiteUrl": "https://github.com/VelvetSP/web-retrieval-mcp",
   "repository": {
     "url": "https://github.com/VelvetSP/web-retrieval-mcp",
@@ -14,7 +14,7 @@
       "registryType": "pypi",
       "registryBaseUrl": "https://pypi.org",
       "identifier": "web-retrieval-mcp",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "transport": { "type": "stdio" },
       "environmentVariables": [
         { "name": "EXA_API_KEY", "description": "Exa API key (free tier at https://exa.ai)", "isRequired": true, "isSecret": true },
