@@ -171,11 +171,9 @@ No. Search and the default fetch path need only `mcp` + `anyio`. The camoufox/pl
 
 ## Publishing
 
-> **Status:** ✅ on [PyPI](https://pypi.org/project/web-retrieval-mcp/) · ✅ [GitHub Release v0.1.0](https://github.com/VelvetSP/web-retrieval-mcp/releases/tag/v0.1.0) · ⬜ official MCP Registry (next).
+> **Status:** ✅ on [PyPI](https://pypi.org/project/web-retrieval-mcp/) · ✅ [GitHub Release](https://github.com/VelvetSP/web-retrieval-mcp/releases) · ✅ listed on the [official MCP Registry](https://registry.modelcontextprotocol.io/v0/servers?search=web-retrieval) as `io.github.VelvetSP/web-retrieval-mcp`.
 
-Remaining step to maximize agent discoverability (see [`PUBLISHING.md`](./PUBLISHING.md) for the full runbook):
-
-- **Official MCP Registry** (`registry.modelcontextprotocol.io`) — the one high-leverage listing; aggregators (PulseMCP, Glama, mcp.so, Smithery) ingest from it. Publish [`server.json`](./server.json) with `mcp-publisher` (GitHub OAuth, namespace `io.github.velvetsp/...`; authorize the publisher app for the **VelvetSP** org).
+Aggregators (PulseMCP, Glama, mcp.so, Smithery) ingest from the official registry, so the listing propagates to them automatically. The [`server.json`](./server.json) manifest and the full runbook live in [`PUBLISHING.md`](./PUBLISHING.md). For a new version: bump the version, `python -m build`, `twine upload`, then `mcp-publisher publish`.
 
 ## Contributing
 
