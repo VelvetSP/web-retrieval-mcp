@@ -16,15 +16,15 @@ Ordered by leverage. Steps 1–2 are gating; the rest are amplification.
 | **awesome-mcp-servers** | hand-curated; pulls your README's first paragraph | Optional: PR one line to `punkpeye/awesome-mcp-servers`. |
 | **LLM citation (GEO)** | 200–400-token answer-first passages, tables, FAQ, entity/brand signals | README + `llms.txt` + `AGENTS.md` are answer-first and structured. |
 
-## Step 1 — Publish to PyPI (gating)
+## Step 1 — Publish to PyPI (gating) — ✅ DONE (v0.1.0)
+
+Live at https://pypi.org/project/web-retrieval-mcp/ — `pip install web-retrieval-mcp` resolves.
+For the next version, bump `version` in `pyproject.toml`, then:
 
 ```
 python -m build                 # builds dist/*.whl + *.tar.gz
 uv publish                      # or: twine upload dist/*   (needs a PyPI API token)
 ```
-
-Verify: `pip install web-retrieval-mcp` resolves; then the short `uvx web-retrieval-mcp`
-and `claude mcp add web-retrieval -- web-retrieval-mcp` work without the git URL.
 
 ## Step 2 — Official MCP Registry (gating for aggregators)
 
