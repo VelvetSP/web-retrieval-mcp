@@ -38,7 +38,7 @@ render = ["camoufox>=0.4", "playwright>=1.50"]
 # Cross-platform native secret store (macOS Keychain / Windows Credential Locker / Linux Secret Service).
 keyring = ["keyring>=24"]
 # Tavily search provider — alternative to Exa for web_search (set WEB_SEARCH_PROVIDER=tavily).
-tavily = ["tavily-python>=0.5"]
+tavily = ["tavily-python>=0.3"]
 
 [project.scripts]
 web-retrieval-mcp = "web_retrieval_mcp.server:main"

@@ -4,7 +4,7 @@
 Exposes two MCP tools, designed to be a higher-fidelity replacement for an
 agent's built-in web tools (which often return source-conflating snippets):
 
-  web_search(query, num_results, mode)  -> Exa /search (neural/keyword/auto)
+  web_search(query, num_results, mode)  -> Exa /search (default) or Tavily (set WEB_SEARCH_PROVIDER=tavily)
   web_fetch(url, render, max_chars)     -> Exa /contents -> [camoufox] -> Firecrawl
 
 Design notes:
@@ -269,7 +269,10 @@ def _tavily_search_sync(query: str, num_results: int) -> list[dict]:
     from tavily import TavilyClient  # noqa: PLC0415 — optional dependency, imported lazily
 
     client = TavilyClient(api_key=_tavily_key())
-    resp = client.search(query=query, max_results=num_results, search_depth="advanced")
+    try:
+        resp = client.search(query=query, max_results=num_results, search_depth="advanced")
+    except Exception as e:
+        raise RetrievalError(f"Tavily search error: {e}") from e
     results: list[dict] = []
     for r in resp.get("results") or []:
         results.append({
