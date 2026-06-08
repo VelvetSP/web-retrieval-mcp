@@ -37,6 +37,8 @@ dependencies = [
 render = ["camoufox>=0.4", "playwright>=1.50"]
 # Cross-platform native secret store (macOS Keychain / Windows Credential Locker / Linux Secret Service).
 keyring = ["keyring>=24"]
+# Tavily search/extract — optional tier for web_search and web_fetch.
+tavily = ["tavily-python>=0.5"]
 
 [project.scripts]
 web-retrieval-mcp = "web_retrieval_mcp.server:main"

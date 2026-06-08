@@ -5,7 +5,7 @@ Exposes two MCP tools, designed to be a higher-fidelity replacement for an
 agent's built-in web tools (which often return source-conflating snippets):
 
   web_search(query, num_results, mode)  -> Exa /search (neural/keyword/auto)
-  web_fetch(url, render, max_chars)     -> Exa /contents -> [camoufox] -> Firecrawl
+  web_fetch(url, render, max_chars)     -> Exa /contents -> [Tavily Extract] -> [camoufox] -> Firecrawl
 
 Design notes:
   - web_fetch is a tiered fetch chain. Tier 1 is Exa /contents; the final
@@ -249,6 +249,10 @@ def _firecrawl_key() -> str:
     return _get_key(env_names=("FIRECRAWL_API_KEY",), service="FIRECRAWL_API_KEY")
 
 
+def _tavily_key() -> str:
+    return _get_key(env_names=("TAVILY_API_KEY",), service="TAVILY_API_KEY")
+
+
 # --------------------------------------------------------------------------- tiers (blocking)
 def _exa_search_sync(query: str, num_results: int, mode: str) -> list[dict]:
     key = _exa_key()
@@ -299,6 +303,22 @@ def _firecrawl_sync(url: str) -> str:
     if len(md) < MIN_USEFUL_CHARS:
         raise RetrievalError(f"firecrawl markdown too short ({len(md)} chars) for {url}")
     return md
+
+
+def _tavily_extract_sync(url: str) -> str:
+    """Blocking Tavily Extract call. Returns markdown/text content for a URL."""
+    from tavily import TavilyClient  # noqa: PLC0415 — optional dependency
+
+    key = _tavily_key()
+    client = TavilyClient(api_key=key)
+    resp = client.extract(urls=[url])
+    results = resp.get("results") or []
+    if not results:
+        raise RetrievalError(f"tavily extract returned no results for {url}")
+    raw = (results[0].get("raw_content") or "").strip()
+    if len(raw) < MIN_USEFUL_CHARS:
+        raise RetrievalError(f"tavily extract too short ({len(raw)} chars) for {url}")
+    return raw
 
 
 async def _camoufox_render(url: str) -> str:
@@ -379,11 +399,12 @@ async def web_search(query: str, num_results: int = 8, mode: str = "auto") -> st
 @mcp.tool()
 async def web_fetch(url: str, render: str = "auto", max_chars: int = 20000,
                     max_age_hours: int | None = None) -> str:
-    """Fetch a single URL's readable content. Tier chain: Exa contents → Firecrawl.
-    The local camoufox headless-browser render is OPT-IN (render="always") only —
-    it is the one tier that runs a real browser on this machine and can therefore
-    reach the local network, so it is kept out of the default path to shrink SSRF
-    exposure. Returns content with a `[served by: …]` provenance header.
+    """Fetch a single URL's readable content. Tier chain: Exa contents →
+    [Tavily Extract] → Firecrawl. The local camoufox headless-browser render is
+    OPT-IN (render="always") only — it is the one tier that runs a real browser on
+    this machine and can therefore reach the local network, so it is kept out of
+    the default path to shrink SSRF exposure. Returns content with a
+    `[served by: …]` provenance header.
 
     Args:
         url: the URL to fetch.
@@ -394,6 +415,11 @@ async def web_fetch(url: str, render: str = "auto", max_chars: int = 20000,
         max_chars: max characters of text to request (default 20000).
         max_age_hours: Exa freshness window (tier 1). None = Exa default cache;
             0 = force fresh. Only affects the Exa /contents tier.
+
+    Env:
+        WEB_FETCH_TAVILY_TIER: set to '1' to enable the Tavily Extract tier
+            between Exa and Firecrawl. Requires TAVILY_API_KEY and the
+            `tavily-python` package (`pip install web-retrieval-mcp[tavily]`).
 
     SSRF note: the camoufox tier follows redirects and re-resolves DNS, so a
     hostile redirect could point it at a LAN/loopback host. Mitigated by gating it
@@ -421,6 +447,18 @@ async def web_fetch(url: str, render: str = "auto", max_chars: int = 20000,
             errors.append(f"exa: thin ({len(text)} chars)")
         except (RetrievalError, asyncio.TimeoutError) as e:
             errors.append(f"exa: {e}")
+
+    # Tavily Extract — optional middle tier, enabled by WEB_FETCH_TAVILY_TIER=1.
+    if render != "always" and os.environ.get("WEB_FETCH_TAVILY_TIER"):
+        try:
+            text = await asyncio.wait_for(
+                anyio.to_thread.run_sync(_tavily_extract_sync, url),
+                timeout=TIER_TIMEOUT)
+            if len(text) >= MIN_USEFUL_CHARS:
+                return f"[served by: tavily]  {url}\n\n{text[:max_chars]}"
+            errors.append(f"tavily: thin ({len(text)} chars)")
+        except (RetrievalError, asyncio.TimeoutError) as e:
+            errors.append(f"tavily: {e}")
 
     # camoufox render — OPT-IN ONLY (render="always"). The SSRF-exposed local
     # browser tier is deliberately NOT in the auto/never path: auto/never fall
