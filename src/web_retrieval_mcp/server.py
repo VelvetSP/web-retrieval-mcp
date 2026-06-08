@@ -249,6 +249,10 @@ def _firecrawl_key() -> str:
     return _get_key(env_names=("FIRECRAWL_API_KEY",), service="FIRECRAWL_API_KEY")
 
 
+def _tavily_key() -> str:
+    return _get_key(env_names=("TAVILY_API_KEY",), service="TAVILY_API_KEY")
+
+
 # --------------------------------------------------------------------------- tiers (blocking)
 def _exa_search_sync(query: str, num_results: int, mode: str) -> list[dict]:
     key = _exa_key()
@@ -258,6 +262,24 @@ def _exa_search_sync(query: str, num_results: int, mode: str) -> list[dict]:
     }
     resp = _post_json(EXA_SEARCH_URL, payload, {"x-api-key": key}, key)
     return resp.get("results") or []
+
+
+def _tavily_search_sync(query: str, num_results: int) -> list[dict]:
+    """Call Tavily Search API and map results to the same shape as Exa."""
+    from tavily import TavilyClient  # noqa: PLC0415 — optional dependency, imported lazily
+
+    client = TavilyClient(api_key=_tavily_key())
+    resp = client.search(query=query, max_results=num_results, search_depth="advanced")
+    results: list[dict] = []
+    for r in resp.get("results") or []:
+        results.append({
+            "title": r.get("title", ""),
+            "url": r.get("url", ""),
+            "publishedDate": r.get("published_date", ""),
+            "highlights": [],
+            "text": r.get("content", ""),
+        })
+    return results
 
 
 def _exa_contents_sync(url: str, max_chars: int, max_age_hours: int | None = None) -> str:
@@ -355,22 +377,31 @@ def _render_search(query: str, results: list[dict]) -> str:
 # --------------------------------------------------------------------------- tools
 @mcp.tool()
 async def web_search(query: str, num_results: int = 8, mode: str = "auto") -> str:
-    """Search the web via Exa (neural/keyword/auto). Returns one block per result,
+    """Search the web via Exa or Tavily. Returns one block per result,
     each with its OWN title, URL, highlights, and text — never a merged summary —
     plus a Sources trailer.
+
+    Set WEB_SEARCH_PROVIDER=tavily to use Tavily instead of Exa (default).
 
     Args:
         query: the search query.
         num_results: how many results (default 8).
-        mode: "auto" (default), "neural", or "keyword".
+        mode: "auto" (default), "neural", or "keyword" (Exa only; ignored by Tavily).
     """
-    if mode not in ("auto", "neural", "keyword"):
-        mode = "auto"
+    provider = os.environ.get("WEB_SEARCH_PROVIDER", "exa").strip().lower()
     try:
-        results = await asyncio.wait_for(
-            anyio.to_thread.run_sync(_exa_search_sync, query, num_results, mode),
-            timeout=TIER_TIMEOUT,
-        )
+        if provider == "tavily":
+            results = await asyncio.wait_for(
+                anyio.to_thread.run_sync(_tavily_search_sync, query, num_results),
+                timeout=TIER_TIMEOUT,
+            )
+        else:
+            if mode not in ("auto", "neural", "keyword"):
+                mode = "auto"
+            results = await asyncio.wait_for(
+                anyio.to_thread.run_sync(_exa_search_sync, query, num_results, mode),
+                timeout=TIER_TIMEOUT,
+            )
     except (RetrievalError, asyncio.TimeoutError) as e:
         return f"SEARCH_FAILED: {query} — {e}"
     return _render_search(query, results)
