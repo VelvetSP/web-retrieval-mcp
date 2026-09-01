@@ -2,7 +2,7 @@
 
 # web-retrieval-mcp — reliable MCP web search and web fetch for AI agents
 
-> **An open-source [Model Context Protocol (MCP)](https://modelcontextprotocol.io) server for source-grounded web research. Give Claude Code, Claude Desktop, Cursor, or any stdio MCP client six read-only tools for Exa or Tavily search, resilient Exa → Camoufox → Tavily → Firecrawl page retrieval, AI/ML paper discovery, and developer-source search—with explicit provenance, optional local caching, and SSRF guards.**
+> **An open-source [Model Context Protocol (MCP)](https://modelcontextprotocol.io) server for source-grounded web research. Connect Codex CLI and the Codex IDE extension, Claude Code, Claude Desktop, Cursor, ChatGPT desktop, or any other compatible MCP client to six read-only tools for Exa or Tavily search, resilient Exa → Camoufox → Tavily → Firecrawl page retrieval, AI/ML paper discovery, and developer-source search—with explicit provenance, optional local caching, and SSRF guards.**
 
 [![PyPI](https://img.shields.io/pypi/v/web-retrieval-mcp.svg)](https://pypi.org/project/web-retrieval-mcp/)
 [![CI](https://github.com/VelvetSP/web-retrieval-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/VelvetSP/web-retrieval-mcp/actions/workflows/ci.yml)
@@ -141,6 +141,23 @@ workload:
 
 ### 3. Connect an MCP client
 
+Codex CLI and the Codex IDE extension share MCP configuration. Add the server with
+the CLI, then verify it is registered:
+
+```bash
+codex mcp add web-retrieval -- web-retrieval-mcp
+codex mcp list
+```
+
+With `uvx` and no prior install:
+
+```bash
+codex mcp add web-retrieval -- uvx web-retrieval-mcp
+```
+
+See OpenAI's [Codex MCP documentation](https://developers.openai.com/codex/mcp)
+for the current CLI, IDE, and configuration-file details.
+
 Claude Code:
 
 ```bash
@@ -171,6 +188,11 @@ If a desktop client does not inherit your shell environment, use the private key
 described below or place literal key values in the client's protected environment
 configuration. Do not rely on `${VARIABLE}` interpolation unless your client documents
 that behavior.
+
+ChatGPT desktop and clients with different setup surfaces can connect through the MCP
+transport their current version supports. This server uses stdio by default and can
+also expose Streamable HTTP; consult the client's documentation for its configuration
+format and supported transports.
 
 ### 4. Give the agent a real task
 
@@ -374,7 +396,8 @@ web-retrieval-mcp-install --uninstall
 ```
 
 The installer is idempotent and backs up an existing settings file before writing.
-This hook is optional; the server works as a complementary tool without it.
+This optional hook is the only Claude Code-specific integration in the package. The
+MCP server itself remains client-neutral and works as a complementary tool without it.
 
 ## Install from source
 
@@ -438,6 +461,14 @@ It can, but it does not have to. The tool descriptions recommend an independent
 complementary lane because two retrieval systems can provide useful source diversity.
 Claude Code users can opt into the bundled replacement hook when they want one enforced
 route.
+
+### Which AI agents and MCP clients can use it?
+
+The server exposes standard MCP over stdio by default and optional Streamable HTTP.
+Documented client examples include Codex CLI and the Codex IDE extension, Claude Code,
+Claude Desktop, Cursor, and ChatGPT desktop; other MCP-capable agents are not excluded.
+Compatibility depends on the client version and the MCP transport it supports, so use
+the matching client documentation alongside the server commands above.
 
 ### Why use Exa, Firecrawl, Tavily, and Camoufox together?
 

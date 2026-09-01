@@ -15,7 +15,7 @@ Code and existing tests are evidence, not the definition of expected behavior.
 | ID | Declared behavior | Public-boundary evidence | Status |
 |---|---|---|---|
 | WR-INSTALL-001 | Wheel installs in a clean environment; base install starts and lists six tools without optional dependencies | `tests/acceptance_public_install.py` | covered |
-| WR-DOCS-001 | Built artifacts expose searchable package/registry metadata, a PyPI-renderable README with portable links, and an agent-readable discovery index | `tests/acceptance_public_metadata.py` | covered |
+| WR-DOCS-001 | Built artifacts expose searchable package/registry metadata, a PyPI-renderable README with portable links and client-neutral onboarding, and an agent-readable discovery index | `tests/acceptance_public_metadata.py` | covered |
 | WR-CREDS-001 | Exa, Firecrawl, and Tavily credentials resolve from documented sources without entering command arguments or errors | Installed MCP with loopback provider doubles; resolver unit cases | covered |
 | WR-SEARCH-001 | Exa search preserves result provenance and uses Firecrawl on provider failure | Installed MCP Exa/Firecrawl calls plus `test_search_render.py` | covered |
 | WR-TAVILY-001 | Tavily is a strict selectable search provider; filter approximations are disclosed | Installed MCP Tavily SDK call plus `test_tavily.py` | covered |

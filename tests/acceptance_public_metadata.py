@@ -71,6 +71,7 @@ with zipfile.ZipFile(wheel) as archive:
     entry_points = archive.read(entry_point_names[0]).decode("utf-8")
 
 description = metadata.get_payload()
+description_flat = re.sub(r"\s+", " ", description)
 summary = metadata.get("Summary", "")
 keywords = {
     value.strip()
@@ -95,6 +96,10 @@ check(
         "web-search", "web-fetch", "web-scraping", "rag",
         "exa", "firecrawl", "tavily", "camoufox",
     }.issubset(keywords),
+)
+check(
+    "search metadata covers representative MCP clients without a single-client bias",
+    {"codex", "chatgpt", "claude-code", "cursor"}.issubset(keywords),
 )
 check(
     "PyPI exposes canonical project links",
@@ -125,12 +130,34 @@ check(
 )
 check(
     "packaged README carries MCP identity and complete install commands",
-    all(value in description for value in (
+    all(value in description_flat for value in (
         "<!-- mcp-name: io.github.VelvetSP/web-retrieval-mcp -->",
         "pipx install --include-deps 'web-retrieval-mcp[all]'",
         "uvx web-retrieval-mcp",
         "python -m pip install 'web-retrieval-mcp[all]'",
         "python -m camoufox fetch",
+    )),
+)
+check(
+    "packaged README states client-neutral MCP compatibility",
+    all(value in description_flat for value in (
+        "Codex CLI and the Codex IDE extension",
+        "Claude Code",
+        "Claude Desktop",
+        "Cursor",
+        "ChatGPT desktop",
+        "any other compatible MCP client",
+        "The MCP server itself remains client-neutral",
+        "Compatibility depends on the client version and the MCP transport it supports",
+    )),
+)
+check(
+    "packaged README provides verified Codex onboarding",
+    all(value in description for value in (
+        "https://developers.openai.com/codex/mcp",
+        "codex mcp add web-retrieval -- web-retrieval-mcp",
+        "codex mcp add web-retrieval -- uvx web-retrieval-mcp",
+        "codex mcp list",
     )),
 )
 rendered = render(description) if "GFM" in variants else None
@@ -218,6 +245,7 @@ check(
 )
 
 llms = extracted.get("llms.txt", "")
+llms_flat = re.sub(r"\s+", " ", llms)
 check("llms.txt has proposal-shaped H1 and summary",
       llms.startswith("# web-retrieval-mcp\n\n> "))
 check("llms.txt provides multiple absolute-link sections",
@@ -225,12 +253,58 @@ check("llms.txt provides multiple absolute-link sections",
       and len(re.findall(r"^- \[[^]]+\]\(https://", llms, re.MULTILINE)) >= 8)
 check(
     "llms.txt points at the canonical package, source, and registry surfaces",
-    all(value in llms for value in (
+    all(value in llms_flat for value in (
         "https://pypi.org/project/web-retrieval-mcp/",
         "https://github.com/VelvetSP/web-retrieval-mcp",
         "https://raw.githubusercontent.com/VelvetSP/web-retrieval-mcp/main/server.json",
         "io.github.VelvetSP/web-retrieval-mcp",
     )),
+)
+check(
+    "llms.txt advertises portable MCP client compatibility",
+    all(value in llms_flat for value in (
+        "The server is client-neutral",
+        "Codex CLI",
+        "IDE extension",
+        "Claude Code",
+        "Claude Desktop",
+        "Cursor",
+        "ChatGPT desktop",
+        "other compatible MCP clients",
+        "each client must use a transport supported by its current version",
+    )),
+)
+check(
+    "llms.txt separates server transports from client transport support",
+    "compatible MCP clients through stdio or optional Streamable HTTP" not in llms_flat,
+)
+
+publishing = extracted.get("PUBLISHING.md", "")
+about_match = re.search(r"^- \*\*About description:\*\* `([^`]+)`$", publishing,
+                        re.MULTILINE)
+about_description = about_match.group(1) if about_match else ""
+check(
+    "GitHub About guidance is portable and within GitHub's length limit",
+    1 <= len(about_description) <= 350
+    and all(value in about_description for value in (
+        "MCP web search", "Codex", "Claude Code", "Claude Desktop", "Cursor",
+        "ChatGPT desktop", "other compatible MCP clients",
+    )),
+    f"length={len(about_description)}",
+)
+topics_match = re.search(
+    r"^- \*\*Topics\*\* .*?:(.*?)(?=^- \*\*Social preview:\*\*)",
+    publishing,
+    re.MULTILINE | re.DOTALL,
+)
+topics = set(re.findall(r"`([a-z0-9-]+)`", topics_match.group(1))) \
+    if topics_match else set()
+check(
+    "GitHub topic guidance includes broad MCP clients and stays within 20 topics",
+    len(topics) <= 20
+    and {"mcp", "model-context-protocol", "codex", "chatgpt", "claude-code",
+         "cursor"}.issubset(topics),
+    f"count={len(topics)}",
 )
 
 print(

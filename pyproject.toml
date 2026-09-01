@@ -14,7 +14,8 @@ authors = [{ name = "VelvetSP" }]
 keywords = [
   "mcp", "mcp-server", "model-context-protocol", "ai-agents", "llm-tools",
   "web-search", "web-fetch", "web-scraping", "web-retrieval", "retrieval",
-  "rag", "research-papers", "developer-search", "claude-code", "cursor",
+  "rag", "research-papers", "developer-search", "codex", "chatgpt",
+  "claude-code", "cursor",
   "exa", "tavily", "firecrawl", "camoufox", "ssrf",
 ]
 classifiers = [

@@ -5,6 +5,11 @@
 > guarded local Camoufox, optional Tavily Extract, and Firecrawl, plus AI/ML paper
 > and developer-source indexes.
 
+The server is client-neutral and exposes stdio by default plus optional Streamable
+HTTP. Documented client examples include Codex CLI and the Codex IDE extension, Claude
+Code, Claude Desktop, Cursor, ChatGPT desktop, and other compatible MCP clients; each
+client must use a transport supported by its current version.
+
 Use this index to understand, install, configure, evaluate, or integrate
 `web-retrieval-mcp`. The README is the canonical user guide. The MCP tool schemas
 exposed by the running server are authoritative for individual call parameters.

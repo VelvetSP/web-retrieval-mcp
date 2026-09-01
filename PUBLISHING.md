@@ -68,12 +68,12 @@ GitHub's default repository search uses the repository name, description, and to
 README text is searchable only when a user explicitly includes README content. After
 public push authorization, update the external repository settings to match the release:
 
-- **About description:** `Reliable MCP web search and web fetch for AI agents: Exa or Tavily search, tiered Exa/Camoufox/Tavily/Firecrawl retrieval, research indexes, provenance, caching, and SSRF guards.`
+- **About description:** `Portable MCP web search and web fetch for Codex, Claude Code, Claude Desktop, Cursor, ChatGPT desktop, and other compatible MCP clients—powered by Exa, Tavily, Camoufox, and Firecrawl with provenance and SSRF guards.`
 - **Website:** `https://pypi.org/project/web-retrieval-mcp/`
 - **Topics** (GitHub allows at most 20): `ai-agents`, `ai-search`, `camoufox`,
-  `claude-code`, `cursor`, `exa`, `firecrawl`, `llm-tools`, `mcp`, `mcp-registry`,
-  `mcp-server`, `model-context-protocol`, `python`, `rag`, `research-papers`,
-  `tavily`, `web-fetch`, `web-retrieval`, `web-scraping`, `web-search`.
+  `chatgpt`, `claude-code`, `codex`, `cursor`, `exa`, `firecrawl`, `llm-tools`,
+  `mcp`, `mcp-server`, `model-context-protocol`, `python`, `rag`, `tavily`,
+  `web-fetch`, `web-retrieval`, `web-scraping`, `web-search`.
 - **Social preview:** upload a legible 1280×640 image under 1 MB. Use the project
   name, “MCP web search + tiered fetch,” and a short Exa/Tavily/Camoufox/Firecrawl
   routing motif; verify readability in GitHub's compact preview.
