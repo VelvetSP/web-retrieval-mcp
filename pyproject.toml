@@ -1,20 +1,21 @@
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling==1.31.0"]
 build-backend = "hatchling.build"
 
 [project]
 name = "web-retrieval-mcp"
-version = "0.1.2"
-description = "MCP server for AI agents: high-fidelity web search (Exa) + tiered web fetch (Exa → optional local browser → Firecrawl) with an SSRF guard. A drop-in replacement for built-in WebSearch/WebFetch."
+version = "0.2.0"
+description = "Reliable MCP web search and web fetch for AI agents with Exa, Tavily, Camoufox, Firecrawl, provenance, caching, and SSRF guards"
 readme = "README.md"
 requires-python = ">=3.10"
 license = "MIT"
 license-files = ["LICENSE"]
 authors = [{ name = "VelvetSP" }]
 keywords = [
-  "mcp", "model-context-protocol", "mcp-server", "ai-agents", "llm-tools",
-  "web-search", "web-scraping", "web-fetch", "exa", "firecrawl", "camoufox",
-  "claude", "claude-code", "rag", "retrieval", "ssrf",
+  "mcp", "mcp-server", "model-context-protocol", "ai-agents", "llm-tools",
+  "web-search", "web-fetch", "web-scraping", "web-retrieval", "retrieval",
+  "rag", "research-papers", "developer-search", "claude-code", "cursor",
+  "exa", "tavily", "firecrawl", "camoufox", "ssrf",
 ]
 classifiers = [
   "Development Status :: 4 - Beta",
@@ -24,19 +25,35 @@ classifiers = [
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
   "Topic :: Internet :: WWW/HTTP :: Indexing/Search",
-  "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 dependencies = [
-  "mcp>=1.27",
-  "anyio>=4.0",
+  "mcp==2.1.1",
+  "anyio==4.14.2",
 ]
 
 [project.optional-dependencies]
-# Local headless-browser render tier — only needed for web_fetch(render="always").
-render = ["camoufox>=0.4", "playwright>=1.50"]
-# Cross-platform native secret store (macOS Keychain / Windows Credential Locker / Linux Secret Service).
-keyring = ["keyring>=24"]
+render = [
+  "camoufox[geoip]==0.5.5",
+  "playwright>=1.60,<1.61",
+]
+cache = ["valkey==6.1.1"]
+tavily = ["tavily-python==0.8.0"]
+keyring = ["keyring>=24,<27"]
+all = [
+  "camoufox[geoip]==0.5.5",
+  "playwright>=1.60,<1.61",
+  "valkey==6.1.1",
+  "tavily-python==0.8.0",
+  "keyring>=24,<27",
+]
+dev = [
+  "build>=1.2,<2",
+  "hatchling==1.31.0",
+  "readme-renderer[md]>=46,<47",
+  "twine>=5,<7",
+]
 
 [project.scripts]
 web-retrieval-mcp = "web_retrieval_mcp.server:main"
@@ -44,8 +61,10 @@ web-retrieval-mcp-install = "web_retrieval_mcp.install:main"
 
 [project.urls]
 Homepage = "https://github.com/VelvetSP/web-retrieval-mcp"
-Repository = "https://github.com/VelvetSP/web-retrieval-mcp"
+Documentation = "https://github.com/VelvetSP/web-retrieval-mcp#readme"
+Source = "https://github.com/VelvetSP/web-retrieval-mcp"
 Issues = "https://github.com/VelvetSP/web-retrieval-mcp/issues"
+"Release Notes" = "https://github.com/VelvetSP/web-retrieval-mcp/releases"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/web_retrieval_mcp"]
@@ -54,4 +73,8 @@ packages = ["src/web_retrieval_mcp"]
 "src/web_retrieval_mcp/hooks/deny-web-builtins.sh" = "web_retrieval_mcp/hooks/deny-web-builtins.sh"
 
 [tool.hatch.build.targets.sdist]
-include = ["src/", "README.md", "LICENSE", "llms.txt", "AGENTS.md"]
+include = [
+  "src/", "tests/", "docs/", ".github/", "README.md", "LICENSE",
+  "AGENTS.md", "PUBLISHING.md", "SECURITY.md", "server.json", "pyproject.toml",
+  "llms.txt", "run-tests.sh", "test_*.py", "valkey_test_support.py",
+]

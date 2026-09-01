@@ -1,31 +1,38 @@
 # web-retrieval-mcp
 
-> An open-source Model Context Protocol (MCP) server that gives AI agents two high-fidelity web tools — neural web search (Exa) and a tiered web fetch (Exa → optional local browser → Firecrawl) — as a drop-in replacement for built-in WebSearch/WebFetch. Provenance-preserving, SSRF-guarded, cross-platform (macOS/Linux/Windows), and free to run on the Exa and Firecrawl free tiers.
+> Open-source Model Context Protocol server providing six read-only tools for
+> source-separated Exa or Tavily web search, tiered page retrieval through Exa,
+> guarded local Camoufox, optional Tavily Extract, and Firecrawl, plus AI/ML paper
+> and developer-source indexes.
 
-## What it provides
+Use this index to understand, install, configure, evaluate, or integrate
+`web-retrieval-mcp`. The README is the canonical user guide. The MCP tool schemas
+exposed by the running server are authoritative for individual call parameters.
 
-- Tool `web_search(query, num_results=8, mode="auto")`: neural/keyword/auto web search via Exa; returns one block per result (title, URL, highlights, text) plus a Sources list — never a merged summary.
-- Tool `web_fetch(url, render="auto", max_chars=20000, max_age_hours=None)`: fetch one URL's readable content through a fallback chain (Exa contents → optional local camoufox browser when render="always" → Firecrawl), with a `[served by: …]` provenance header.
-- A Claude Code PreToolUse hook (`deny-web-builtins.sh`) plus installer (`web-retrieval-mcp-install`) that disables built-in WebSearch/WebFetch so agents use these tools instead.
+## Start here
 
-## Install and run
+- [README](https://raw.githubusercontent.com/VelvetSP/web-retrieval-mcp/main/README.md): Product overview, comparison with built-in agent web tools, quick start, client configuration, routing, security, and FAQ.
+- [PyPI package](https://pypi.org/project/web-retrieval-mcp/): Published Python distribution, version history, and install metadata.
+- [MCP server manifest](https://raw.githubusercontent.com/VelvetSP/web-retrieval-mcp/main/server.json): Official MCP Registry identity, package, transport, and environment-variable metadata.
+- [Source repository](https://github.com/VelvetSP/web-retrieval-mcp): Code, releases, issues, and contribution workflow.
 
-- Run without installing: `uvx web-retrieval-mcp`
-- Install CLI: `pipx install web-retrieval-mcp` (or `pip install web-retrieval-mcp`)
-- Optional extras: `pip install "web-retrieval-mcp[render]"` (local browser), `pip install "web-retrieval-mcp[keyring]"` (native secret store)
-- Register with Claude Code: `claude mcp add web-retrieval -- web-retrieval-mcp`
-- API keys (free): set env vars `EXA_API_KEY` (https://exa.ai) and `FIRECRAWL_API_KEY` (https://firecrawl.dev)
+## Technical documentation
 
-## Key facts
+- [Testing contract](https://raw.githubusercontent.com/VelvetSP/web-retrieval-mcp/main/docs/TESTING.md): Feature matrix, public-boundary acceptance tests, release gate, and remaining adaptation ledger.
+- [Completed-result cache](https://raw.githubusercontent.com/VelvetSP/web-retrieval-mcp/main/docs/CACHE.md): Valkey UDS setup, cache eligibility, privacy model, and singleflight behavior.
+- [Security policy](https://raw.githubusercontent.com/VelvetSP/web-retrieval-mcp/main/SECURITY.md): Vulnerability reporting and the URL, redirect, DNS-rebinding, and HTTP trust boundaries.
+- [Documentation index](https://raw.githubusercontent.com/VelvetSP/web-retrieval-mcp/main/docs/README.md): Short map of project documentation.
 
-- License: MIT. Language: Python 3.10+. Transport: MCP over stdio.
-- Free tiers: Exa 1,000 requests/month and Firecrawl 1,000 pages/month, no credit card; the local browser tier is free and unlimited.
-- Cross-platform key resolution: env vars → key file → `keyring` library → OS secret CLI (macOS `security`, Linux `secret-tool`).
-- Security: rejects non-public hosts (loopback, RFC-1918, link-local, multicast, NAT64) before any request.
+## Distribution and maintenance
 
-## Links
+- [Release runbook](https://raw.githubusercontent.com/VelvetSP/web-retrieval-mcp/main/PUBLISHING.md): Versioning, artifact verification, public-history review, PyPI publication, MCP Registry publication, and discoverability checklist.
+- [MCP Registry](https://registry.modelcontextprotocol.io/v0/servers?search=web-retrieval): Registry search for the published `io.github.VelvetSP/web-retrieval-mcp` server.
+- [Releases](https://github.com/VelvetSP/web-retrieval-mcp/releases): Published versions and release notes.
+- [Issues](https://github.com/VelvetSP/web-retrieval-mcp/issues): Bug reports, feature requests, and contribution discussion.
 
-- Repository: https://github.com/VelvetSP/web-retrieval-mcp
-- README: https://github.com/VelvetSP/web-retrieval-mcp/blob/main/README.md
-- Agent guide: https://github.com/VelvetSP/web-retrieval-mcp/blob/main/AGENTS.md
-- Exa API: https://exa.ai · Firecrawl API: https://firecrawl.dev · MCP: https://modelcontextprotocol.io
+## Provider references
+
+- [Exa](https://exa.ai): Default web search and indexed-content retrieval provider.
+- [Firecrawl](https://www.firecrawl.dev): Fallback web retrieval plus research-paper and developer indexes.
+- [Tavily](https://www.tavily.com): Optional alternate search provider and full-body extraction tier.
+- [Camoufox](https://github.com/daijro/camoufox): Optional local browser-rendering tier.

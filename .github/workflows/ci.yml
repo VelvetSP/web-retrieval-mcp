@@ -1,0 +1,40 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  base-install:
+    name: Base install (Python ${{ matrix.python }})
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.10", "3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - run: python -m pip install .
+      - run: python -m pip check
+      - run: web-retrieval-mcp --version
+      - run: python -c "import web_retrieval_mcp; assert web_retrieval_mcp.__version__ == '0.2.0'"
+
+  release-gate:
+    name: Public release gate
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: python -m pip install -e '.[all,dev]'
+      - run: python -m playwright install-deps firefox
+      - run: python -m camoufox fetch
+      - run: ./run-tests.sh

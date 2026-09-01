@@ -1,56 +1,125 @@
-# Publishing & discoverability runbook
+# Publishing runbook
 
-How to take `web-retrieval-mcp` from "on GitHub" to "agents find, install, and cite it."
-Ordered by leverage. Steps 1–2 are gating; the rest are amplification.
+This repository publishes the `web-retrieval-mcp` Python package and MCP Registry
+manifest. Publishing changes external state and must be performed only by an
+authorized maintainer.
 
-## Requirements → action map
+## Prepare and verify
 
-| Discovery channel | What it indexes / requires | Action |
-|---|---|---|
-| **GitHub search & Google** | repo **name**, **About/description**, **topics** (highest weight), README H1/H2 + first paragraph, Releases | Done: keyword name, description, 18 topics, structured README. Cut a Release (step 3). |
-| **Official MCP Registry** (`registry.modelcontextprotocol.io`) | `server.json`, a package on a trusted registry (**PyPI**), GitHub OAuth namespace ownership | Steps 1–2. Aggregators ingest from here. |
-| **Glama** (`glama.ai/mcp`) | auto-indexes from **GitHub topics + README**; scores the worst-described tool at 40% weight | Topics set; tool docstrings are descriptive. Auto-picks up. |
-| **mcp.so** | auto-pulls README: first bash block with `claude mcp add`, `## Tools` heading + table, first image | README has both. Optional: submit at https://mcp.so/submit. |
-| **PulseMCP** | syncs from the official Registry + GitHub topics | Automatic after step 2. |
-| **Smithery** (`smithery.ai`) | auto-crawls GitHub; `smithery.yaml` tunes ranking (name / description / categories) | Optional: add `smithery.yaml` or submit the repo URL. |
-| **awesome-mcp-servers** | hand-curated; pulls your README's first paragraph | Optional: PR one line to `punkpeye/awesome-mcp-servers`. |
-| **LLM citation (GEO)** | 200–400-token answer-first passages, tables, FAQ, entity/brand signals | README + `llms.txt` + `AGENTS.md` are answer-first and structured. |
+1. Update the version in `pyproject.toml`, `src/web_retrieval_mcp/_version.py`, and
+   `server.json`.
+2. Update `README.md`, `llms.txt`, and release notes for user-visible behavior.
+3. Start from a branch whose complete reachable history is approved for public
+   disclosure. Never publish a branch descended from a private development history.
+4. Install the full test environment and run the release gate:
 
-## Step 1 — Publish to PyPI (gating) — ✅ DONE (v0.1.0)
+   ```bash
+   python3.12 -m pip install -e '.[all,dev]'
+   python3.12 -m camoufox fetch
+   ./run-tests.sh
+   ```
 
-Live at https://pypi.org/project/web-retrieval-mcp/ — `pip install web-retrieval-mcp` resolves.
-For the next version, bump `version` in `pyproject.toml`, then:
+5. When browser or SSRF behavior changed, also run:
 
-```
-python -m build                 # builds dist/*.whl + *.tar.gz
-uv publish                      # or: twine upload dist/*   (needs a PyPI API token)
-```
+   ```bash
+   python3.12 test_ssrf_redirect_live.py
+   ```
 
-## Step 2 — Official MCP Registry (gating for aggregators)
+6. Inspect the exact commit and artifacts for credentials, private hosts, local paths,
+   generated files, and unexpected history before publication.
 
-Requires PyPI (step 1) + GitHub OAuth. **Namespace caveat:** the repo lives under the
-`VelvetSP` org, and the registry verifies namespace ownership casing-exact via OAuth —
-authorize the publisher app for the `VelvetSP` org so `io.github.velvetsp/...` validates.
+## Publish the package
 
-```
-brew install mcp-publisher       # or download from the registry releases
-mcp-publisher login              # GitHub OAuth (authorize the VelvetSP org)
-mcp-publisher publish            # reads ./server.json
-```
+Build fresh artifacts from the reviewed commit and verify their metadata and contents:
 
-`server.json` is already in the repo — validate it with `mcp-publisher` before publishing
-(schema fields evolve; confirm against the `$schema` URL in the file).
-
-## Step 3 — Tag a GitHub Release (freshness + Google index)
-
-```
-git tag v0.1.0
-git push origin v0.1.0
-gh release create v0.1.0 --title "v0.1.0" --notes "First release."
+```bash
+python3.12 -m build
+python3.12 -m twine check dist/*
+python3.12 tests/acceptance_public_metadata.py dist/
+python3.12 -m zipfile -l dist/*.whl
+python3.12 -m tarfile -l dist/*.tar.gz
 ```
 
-## Step 4 — Amplify (optional, low effort, slow burn)
+Upload with a trusted publisher or a scoped PyPI token held outside the repository.
+Never place a token in a command argument, file in the tree, shell history, or log.
 
-- mcp.so: submit at https://mcp.so/submit (re-fetches README weekly).
-- Smithery: submit the GitHub URL; optionally add `smithery.yaml`.
-- awesome-mcp-servers: PR one line to `punkpeye/awesome-mcp-servers` (DoFollow backlink).
+## Publish GitHub and MCP Registry metadata
+
+After the package exists on PyPI:
+
+1. Push the reviewed public branch and open/review the public pull request.
+2. Tag the merged commit as `v<version>` and create release notes.
+3. Validate `server.json` with the current `mcp-publisher` release.
+4. Authenticate interactively and run `mcp-publisher publish`.
+
+Do not automate PyPI, GitHub Release, or MCP Registry publication from an untrusted
+pull-request workflow. Keep repository workflow permissions read-only unless a separate,
+reviewed release workflow genuinely needs more.
+
+## Discoverability checklist
+
+Search engines and package/agent catalogs draw from different metadata surfaces. Keep
+them semantically aligned while respecting each surface's length and format limits; do
+not add keyword dumps or claims that are broader than the current release.
+
+### GitHub repository settings
+
+GitHub's default repository search uses the repository name, description, and topics;
+README text is searchable only when a user explicitly includes README content. After
+public push authorization, update the external repository settings to match the release:
+
+- **About description:** `Reliable MCP web search and web fetch for AI agents: Exa or Tavily search, tiered Exa/Camoufox/Tavily/Firecrawl retrieval, research indexes, provenance, caching, and SSRF guards.`
+- **Website:** `https://pypi.org/project/web-retrieval-mcp/`
+- **Topics** (GitHub allows at most 20): `ai-agents`, `ai-search`, `camoufox`,
+  `claude-code`, `cursor`, `exa`, `firecrawl`, `llm-tools`, `mcp`, `mcp-registry`,
+  `mcp-server`, `model-context-protocol`, `python`, `rag`, `research-papers`,
+  `tavily`, `web-fetch`, `web-retrieval`, `web-scraping`, `web-search`.
+- **Social preview:** upload a legible 1280×640 image under 1 MB. Use the project
+  name, “MCP web search + tiered fetch,” and a short Exa/Tavily/Camoufox/Firecrawl
+  routing motif; verify readability in GitHub's compact preview.
+
+These are GitHub-hosted settings, not repository files. Changing them is a separate
+external-state action and is never implied by editing this runbook.
+
+### Search and agent-facing files
+
+- Keep the README's H1, opening paragraph, section headings, and FAQ descriptive and
+  people-first. Search snippets are commonly drawn from visible page content.
+- Use absolute repository URLs for README file links so the same long description
+  works on both GitHub and PyPI; same-document `#anchors` may remain relative.
+- Keep `pyproject.toml`'s description, keywords, and well-known project URLs current;
+  the README becomes the PyPI long description.
+- Keep `server.json` versioned with the package. Publish the package to PyPI before
+  the MCP Registry because the registry validates package ownership and availability.
+- Keep the registry description capability-focused and at most 100 characters, as
+  required by the referenced `server.json` schema.
+- Validate `server.json` with `mcp-publisher validate` before publishing a new,
+  immutable registry version. Correct published metadata by releasing a new version,
+  not by assuming an existing registry entry can be overwritten.
+- Keep `llms.txt` short and link-oriented. It follows the llms.txt proposal for
+  agent-readable navigation; it is a supplemental discovery surface, not a formal web
+  standard or a substitute for the README and MCP Registry metadata.
+
+### Post-publication verification
+
+1. Open the GitHub repository while signed out and verify the About text, topics,
+   social preview, README anchors, and relative links.
+2. Open the PyPI project and verify the version, one-line summary, rendered README,
+   Python requirement, extras, license, and project links.
+3. Search the MCP Registry for `io.github.VelvetSP/web-retrieval-mcp` and verify the
+   package version, transport, and all three optional provider variables.
+4. Install from PyPI in a clean environment and list the six MCP tools.
+5. Check the raw URLs in `llms.txt` after the public branch becomes the repository's
+   default branch.
+
+Primary guidance used for this checklist:
+
+- [GitHub README guidance](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-readmes)
+- [GitHub repository topics](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/classifying-your-repository-with-topics)
+- [GitHub social previews](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/customizing-your-repositorys-social-media-preview)
+- [Google Search SEO Starter Guide](https://developers.google.com/search/docs/fundamentals/seo-starter-guide)
+- [Python project metadata](https://packaging.python.org/specifications/declaring-project-metadata/)
+- [PyPI-friendly README guidance](https://packaging.python.org/en/latest/guides/making-a-pypi-friendly-readme/)
+- [Well-known Python project URLs](https://packaging.python.org/en/latest/specifications/well-known-project-urls/)
+- [MCP Registry publishing quickstart](https://modelcontextprotocol.io/registry/quickstart)
+- [llms.txt proposal](https://llmstxt.org/)

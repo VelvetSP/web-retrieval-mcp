@@ -1,5 +1,5 @@
-"""web-retrieval MCP server — high-fidelity web_search + tiered web_fetch."""
-from .server import main, mcp
+"""Public package interface for web-retrieval-mcp."""
 
-__all__ = ["main", "mcp"]
-__version__ = "0.1.2"
+from ._version import __version__
+
+__all__ = ["__version__"]

@@ -5,6 +5,8 @@ __pycache__/
 venv/
 .env
 *.egg-info/
-.DS_Store
 dist/
 build/
+.coverage
+.pytest_cache/
+.DS_Store

@@ -1,9 +1,9 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.VelvetSP/web-retrieval-mcp",
-  "title": "web-retrieval-mcp",
-  "description": "MCP web search + tiered web fetch for AI agents (Exa, Firecrawl), SSRF-guarded, cross-platform.",
-  "version": "0.1.2",
+  "title": "Web Retrieval MCP",
+  "description": "Reliable web search, tiered page retrieval, research tools, provenance, caching, and SSRF guards.",
+  "version": "0.2.0",
   "websiteUrl": "https://github.com/VelvetSP/web-retrieval-mcp",
   "repository": {
     "url": "https://github.com/VelvetSP/web-retrieval-mcp",
@@ -14,11 +14,27 @@
       "registryType": "pypi",
       "registryBaseUrl": "https://pypi.org",
       "identifier": "web-retrieval-mcp",
-      "version": "0.1.2",
+      "version": "0.2.0",
       "transport": { "type": "stdio" },
       "environmentVariables": [
-        { "name": "EXA_API_KEY", "description": "Exa API key (free tier at https://exa.ai)", "isRequired": true, "isSecret": true },
-        { "name": "FIRECRAWL_API_KEY", "description": "Firecrawl API key (free tier at https://firecrawl.dev)", "isRequired": true, "isSecret": true }
+        {
+          "name": "EXA_API_KEY",
+          "description": "Exa API key for the default search and first fetch tier.",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "FIRECRAWL_API_KEY",
+          "description": "Firecrawl API key for fallback search/fetch and research tools.",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "TAVILY_API_KEY",
+          "description": "Optional Tavily key; Tavily calls also require the package's tavily extra.",
+          "isRequired": false,
+          "isSecret": true
+        }
       ]
     }
   ]
