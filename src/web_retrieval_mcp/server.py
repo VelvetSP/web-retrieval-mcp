@@ -2,7 +2,7 @@
 """High-fidelity web search and fetch tools for Model Context Protocol clients.
 
 The server exposes six read-only tools. General search uses Exa by default or
-Tavily when selected, with Firecrawl as a search fallback. Full-page retrieval
+Tavily or You.com when selected, with Firecrawl as a search fallback. Full-page retrieval
 uses Exa, an optional local Camoufox renderer, optional Tavily Extract, and
 Firecrawl as the final backstop. Three additional tools expose Firecrawl's
 research-paper and developer indexes.
@@ -11,7 +11,8 @@ Provider credentials are resolved in-process from environment variables, an
 optional dotenv-style key file, the optional ``keyring`` package, or an OS
 secret-store command. Secrets are never placed in subprocess command arguments
 or written to logs. Optional browser, cache, keyring, and Tavily dependencies
-are imported lazily so the base package remains usable without them.
+are imported lazily so the base package remains usable without them. You.com
+uses only the Python stdlib — no extra dependency needed.
 
 stdout is reserved for JSON-RPC. Diagnostics are written only to stderr.
 """
@@ -128,6 +129,8 @@ FIRECRAWL_SEARCH_URL = _acceptance_lab_endpoint(
     "WEBRET_ACCEPTANCE_FIRECRAWL_SEARCH_URL", "https://api.firecrawl.dev/v2/search")
 TAVILY_API_BASE = _acceptance_lab_endpoint(
     "WEBRET_ACCEPTANCE_TAVILY_API_BASE", "https://api.tavily.com")
+YOU_API_BASE = _acceptance_lab_endpoint(
+    "WEBRET_ACCEPTANCE_YOU_API_BASE", "https://api.you.com")
 FC_RESEARCH_BASE = "https://api.firecrawl.dev/v2/search/research"  # Firecrawl Research Index (papers + legacy github)
 FC_DEVELOPER_URL = "https://api.firecrawl.dev/v2/search/developer"
 
@@ -704,6 +707,10 @@ def _tavily_key() -> str:
     return _get_key(env_names=("TAVILY_API_KEY",), service="TAVILY_API_KEY")
 
 
+def _you_key() -> str:
+    return _get_key(env_names=("YDC_API_KEY",), service="YDC_API_KEY")
+
+
 def _firecrawl_key_optional() -> str:
     """Like _firecrawl_key but returns "" instead of raising when no key resolves.
     The Research Index works keyless on Firecrawl's free tier, so a locked login
@@ -1182,6 +1189,113 @@ def _tavily_extract_sync(url: str) -> str:
             f"Tavily Extract content too short ({len(body)} chars) for {_display_url(url)}"
         )
     return body
+
+
+def _you_search_options(
+    *,
+    mode: str,
+    recency_days: int | None,
+    recency_hours: int | None,
+    start_published_date: str | None,
+    end_published_date: str | None,
+    category: str | None,
+    include_domains: list[str] | None,
+    exclude_domains: list[str] | None,
+) -> tuple[dict, list[str]]:
+    """Map shared search controls to You.com Search API parameters."""
+    notices: list[str] = []
+    params: dict[str, str] = {}
+
+    # You.com supports count (num results), but not search_depth.
+    # Mode is informational; You.com returns relevance-ranked results.
+    if mode not in ("auto", "fast", "instant"):
+        notices.append(f"mode={mode!r} has no You.com equivalent; results are relevance-ranked")
+
+    # Date/recency mapping via freshness parameter.
+    start = _parse_date(start_published_date) if start_published_date else None
+    end = _parse_date(end_published_date) if end_published_date else None
+    if start_published_date and start is None:
+        notices.append("invalid start_published_date was ignored")
+    if end_published_date and end is None:
+        notices.append("invalid end_published_date was ignored")
+
+    if start is not None:
+        params["freshness"] = start.isoformat()
+    elif recency_hours and 0 < recency_hours <= 876_000:
+        days = max(1, (recency_hours + 23) // 24)
+        params["freshness"] = (datetime.now(timezone.utc).date()
+                               - timedelta(days=days)).isoformat()
+        notices.append(
+            f"recency_hours={recency_hours} mapped to You.com freshness={params['freshness']}"
+        )
+    else:
+        if recency_hours and recency_hours > 876_000:
+            notices.append(
+                "recency_hours exceeds the supported 100-year bound and was ignored"
+            )
+        if recency_days and 0 < recency_days <= 36_500:
+            params["freshness"] = (datetime.now(timezone.utc).date()
+                                   - timedelta(days=recency_days)).isoformat()
+        elif recency_days and recency_days > 36_500:
+            notices.append(
+                "recency_days exceeds the supported 100-year bound and was ignored"
+            )
+
+    if end is not None:
+        if "freshness" not in params or end.isoformat() >= params["freshness"]:
+            params["freshness_end"] = end.isoformat()
+        else:
+            notices.append("end_published_date precedes effective start and was dropped")
+
+    if category == "news":
+        params["search_type"] = "news"
+    elif category:
+        notices.append(f"category={category!r} has no exact You.com equivalent and was dropped")
+
+    if include_domains:
+        params["include_domains"] = ",".join(include_domains[:20])
+        if len(include_domains) > 20:
+            notices.append("include_domains was capped at 20 entries")
+    if exclude_domains:
+        params["exclude_domains"] = ",".join(exclude_domains[:20])
+        if len(exclude_domains) > 20:
+            notices.append("exclude_domains was capped at 20 entries")
+
+    return params, notices
+
+
+def _you_search_sync(query: str, num_results: int, params: dict) -> dict:
+    """Call You.com Search API and map results to the common renderer shape."""
+    key = _you_key()
+    url = f"{YOU_API_BASE}/api/v1/search?query={quote(query)}&count={num_results}"
+    for k, v in params.items():
+        url += f"&{k}={quote(str(v))}"
+
+    try:
+        req = urllib.request.Request(url)
+        req.add_header("Authorization", f"Bearer {key}")
+        req.add_header("Accept", "application/json")
+        with urllib.request.urlopen(req, timeout=HTTP_TIMEOUT) as resp:
+            body = resp.read().decode("utf-8", errors="replace")
+            data = json.loads(body)
+    except urllib.error.HTTPError as e:
+        detail = e.read().decode("utf-8", errors="replace")[:500] if e.fp else str(e)
+        raise RetrievalError(_scrub(f"You.com search failed ({e.code}): {detail}", key))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise RetrievalError(_scrub(f"You.com search failed ({exc.__class__.__name__})", key))
+
+    mapped: list[dict] = []
+    for result in data.get("results") or []:
+        if not isinstance(result, dict):
+            continue
+        mapped.append({
+            "title": result.get("title") or "",
+            "url": result.get("url") or "",
+            "publishedDate": result.get("published_date") or result.get("age") or "",
+            "highlights": [],
+            "text": result.get("snippet") or result.get("text") or "",
+        })
+    return {"results": mapped}
 
 
 def _recency_hours_to_tbs(hours: int | None) -> str | None:
@@ -2008,9 +2122,9 @@ async def web_search(query: str, num_results: int = 8, mode: str = "auto",
             has no equivalent — when the Exa tier serves and this was requested, the
             response header discloses that it was not applied rather than silently
             ignoring it.
-        provider: "exa" or "tavily". When omitted, WEB_SEARCH_PROVIDER is used,
+        provider: "exa", "tavily", or "you". When omitted, WEB_SEARCH_PROVIDER is used,
             defaulting to Exa. Invalid values fail explicitly. Tavily requires the
-            ``tavily`` extra and TAVILY_API_KEY.
+            ``tavily`` extra and TAVILY_API_KEY. You.com requires YDC_API_KEY.
     """
     #  mode enum migration: legacy neural/keyword -> auto (deprecated),
     # unknown -> auto; deep-family modes get the longer inner+outer timeouts.
@@ -2031,11 +2145,11 @@ async def web_search(query: str, num_results: int = 8, mode: str = "auto",
     if configured_provider is None:
         configured_provider = os.environ.get("WEB_SEARCH_PROVIDER", "exa")
     if not isinstance(configured_provider, str):
-        return "SEARCH_FAILED: provider must be 'exa' or 'tavily'"
+        return "SEARCH_FAILED: provider must be 'exa', 'tavily', or 'you'"
     selected_provider = configured_provider.strip().casefold()
-    if selected_provider not in {"exa", "tavily"}:
+    if selected_provider not in {"exa", "tavily", "you"}:
         return ("SEARCH_FAILED: unsupported provider "
-                f"{configured_provider!r}; expected 'exa' or 'tavily'")
+                f"{configured_provider!r}; expected 'exa', 'tavily', or 'you'")
 
     if selected_provider == "tavily":
         options, tavily_notices = _tavily_search_options(
@@ -2088,6 +2202,64 @@ async def web_search(query: str, num_results: int = 8, mode: str = "auto",
             )
         headers = ["[served by: tavily search]"]
         headers.extend(f"[{notice}]" for notice in tavily_notices)
+        return _render_search(
+            query,
+            response.get("results") or [],
+            text_chars,
+            header_lines=headers,
+        )
+
+    if selected_provider == "you":
+        options, you_notices = _you_search_options(
+            mode=mode,
+            recency_days=recency_days,
+            recency_hours=recency_hours,
+            start_published_date=start_published_date,
+            end_published_date=end_published_date,
+            category=category,
+            include_domains=include_domains,
+            exclude_domains=exclude_domains,
+        )
+        if summary:
+            you_notices.append(
+                "summary has no per-result You.com equivalent; result snippets were returned"
+            )
+        if sort_by_date:
+            you_notices.append(
+                "sort_by_date is not supported by You.com; results are provider-ranked"
+            )
+        _TIER_DEADLINE_VAR.set(_tier_deadline(TIER_TIMEOUT))
+        try:
+            response = await asyncio.wait_for(
+                anyio.to_thread.run_sync(
+                    _you_search_sync,
+                    query,
+                    num_results,
+                    options,
+                    abandon_on_cancel=True,
+                ),
+                timeout=TIER_TIMEOUT,
+            )
+        except (RetrievalError, asyncio.TimeoutError) as exc:
+            return await _web_search_fallback(
+                query,
+                num_results,
+                text_chars,
+                summary,
+                str(exc),
+                recency_days,
+                start_published_date,
+                end_published_date,
+                category,
+                include_domains,
+                exclude_domains,
+                filter_notices=you_notices,
+                recency_hours=recency_hours,
+                sort_by_date=sort_by_date,
+                primary_provider="you",
+            )
+        headers = ["[served by: you search]"]
+        headers.extend(f"[{notice}]" for notice in you_notices)
         return _render_search(
             query,
             response.get("results") or [],
