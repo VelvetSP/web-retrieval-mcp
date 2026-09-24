@@ -122,6 +122,7 @@ want provider-selectable search or another full-body fetch tier.
 export EXA_API_KEY='<your-exa-api-key>'
 export FIRECRAWL_API_KEY='<your-firecrawl-api-key>'
 export TAVILY_API_KEY='<your-tavily-api-key>'   # optional
+export YDC_API_KEY='<your-you-api-key>'          # optional
 ```
 
 You do not need all three keys to start the server. Tools resolve credentials lazily
@@ -137,6 +138,7 @@ workload:
 | [Exa](https://exa.ai/pricing?tab=api) | $20 signup credit plus $10 monthly API credits | Default web search and first indexed-content fetch tier |
 | [Firecrawl](https://www.firecrawl.dev/pricing) | 1,000 credits per month | Search/fetch fallback and research/developer indexes |
 | [Tavily](https://www.tavily.com/pricing) | 1,000 API credits per month | Optional search provider and full-body extract tier |
+| [You.com](https://you.com/platform/api-keys) | Free plan with 1000 searches/month; keyless option available | Optional search provider via YDC_API_KEY |
 | [Camoufox](https://github.com/daijro/camoufox) | Local open-source browser | JavaScript-rendered page retrieval on your machine |
 
 ### 3. Connect an MCP client
@@ -287,7 +289,7 @@ concise, question-answer, or explicit freshness contract.
 
 The server resolves each API key lazily in this order:
 
-1. `EXA_API_KEY`, `FIRECRAWL_API_KEY`, or `TAVILY_API_KEY` in the process environment.
+1. `EXA_API_KEY`, `FIRECRAWL_API_KEY`, `TAVILY_API_KEY`, or `YDC_API_KEY` in the process environment.
 2. A dotenv-style private key file.
 3. The optional Python `keyring` package.
 4. macOS Keychain or Linux Secret Service command-line clients.
@@ -307,6 +309,7 @@ printf '%s\n' \
   'EXA_API_KEY=<your-exa-api-key>' \
   'FIRECRAWL_API_KEY=<your-firecrawl-api-key>' \
   'TAVILY_API_KEY=<your-tavily-api-key>' \
+  'YDC_API_KEY=<your-you-api-key>' \
   > ~/.config/web-retrieval-mcp/keys.env
 chmod 600 ~/.config/web-retrieval-mcp/keys.env
 ```
@@ -330,7 +333,8 @@ URLs, and are never put in provider command arguments.
 | `EXA_API_KEY` | unset | Exa search and indexed page contents |
 | `FIRECRAWL_API_KEY` | unset | Firecrawl fallback, research papers, and developer search |
 | `TAVILY_API_KEY` | unset | Tavily Search and Extract; also requires the `tavily` extra |
-| `WEB_SEARCH_PROVIDER` | `exa` | Default `web_search` provider: `exa` or `tavily` |
+| `YDC_API_KEY` | unset | You.com search provider (no extra dependency required) |
+| `WEB_SEARCH_PROVIDER` | `exa` | Default `web_search` provider: `exa`, `tavily`, or `you` |
 | `WEB_FETCH_TAVILY_TIER` | `false` | Globally enable Tavily Extract in eligible fetch cascades |
 | `WEB_RETRIEVAL_MCP_ENV_FILE` | platform key-file path | Override the exact dotenv key file |
 | `WEB_RETRIEVAL_MCP_CONFIG_DIR` | platform config directory | Override the directory containing `keys.env` |

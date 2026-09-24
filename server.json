@@ -34,6 +34,12 @@
           "description": "Optional Tavily key; Tavily calls also require the package's tavily extra.",
           "isRequired": false,
           "isSecret": true
+        },
+        {
+          "name": "YDC_API_KEY",
+          "description": "Optional You.com API key for the you search provider.",
+          "isRequired": false,
+          "isSecret": true
         }
       ]
     }
