@@ -63,6 +63,9 @@ Use it as an **independent complementary retrieval lane** by default. If you wan
 to replace Claude Code's built-in `WebSearch` and `WebFetch`, the package also includes
 an optional, previewable hook installer.
 
+For keyless source discovery alongside this server, see the optional
+[Parallel Search MCP companion guide](https://github.com/VelvetSP/web-retrieval-mcp/blob/main/docs/PARALLEL.md).
+
 ## Quick start
 
 Python 3.10 or newer is required.

@@ -3,6 +3,11 @@
 Start with the [project README](../README.md) for the product overview, installation,
 MCP client configuration, tool catalog, provider routing, and FAQ.
 
+## Research workflows
+
+- [PARALLEL.md](PARALLEL.md) — optional keyless source discovery with Parallel
+  Search MCP, followed by selected-page retrieval with `web-retrieval-mcp`.
+
 ## Operation and verification
 
 - [TESTING.md](TESTING.md) — feature matrix, public-boundary acceptance contract,
