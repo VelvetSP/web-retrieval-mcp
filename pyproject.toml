@@ -30,7 +30,7 @@ classifiers = [
   "Topic :: Internet :: WWW/HTTP :: Indexing/Search",
 ]
 dependencies = [
-  "mcp==2.1.1",
+  "mcp==2.2.0",
   "anyio==4.14.2",
 ]
 
